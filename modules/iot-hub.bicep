@@ -14,8 +14,8 @@ param name string
 @description('Azure Region')
 param location string
 
-@description('Umgebung (dev / prod)')
-@allowed(['dev', 'prod'])
+@description('Umgebung (dev / test / prod)')
+@allowed(['dev', 'test', 'prod'])
 param environment string
 
 @description('Ressource-Tags')
@@ -25,10 +25,10 @@ param tags object
 // Variablen
 // ---------------------------------------------------------------------------
 
-// Im Dev-Betrieb: kostenloser Free-Tier (max. 8000 Nachrichten/Tag).
-// Im Prod-Betrieb: Standard S1 für Consumer Groups und Message Routing.
-var skuName = environment == 'prod' ? 'S1' : 'F1'
-var skuCapacity = environment == 'prod' ? 1 : 1
+// Dev: kostenloser Free-Tier (max. 8000 Nachrichten/Tag, 1x pro Subscription).
+// Test/Prod: Standard S1 für Consumer Groups und Message Routing.
+var skuName = environment == 'dev' ? 'F1' : 'S1'
+var skuCapacity = 1
 
 // Aufbewahrung der Nachrichten im eingebetteten Event Hub (1–7 Tage)
 var retentionDays = environment == 'prod' ? 3 : 1

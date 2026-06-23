@@ -1,0 +1,35 @@
+# =============================================================================
+# docker-compose.yml – Edge Gateway auf dem Raspberry Pi
+# Verwendung:
+#   1. cp .env.example .env  → Connection String eintragen
+#   2. docker compose up -d
+# =============================================================================
+
+services:
+  edge-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: iiot-edge-gateway
+    restart: unless-stopped          # Neustart bei Absturz oder Pi-Reboot
+
+    # DHT22 braucht Zugriff auf GPIO Hardware
+    privileged: true
+    devices:
+      - /dev/gpiomem:/dev/gpiomem   # GPIO Zugriff
+
+    environment:
+      # Connection String aus .env Datei (NICHT in Git einchecken!)
+      IOTHUB_DEVICE_CONNECTION_STRING: ${IOTHUB_DEVICE_CONNECTION_STRING}
+
+      # Gerätekonfiguration
+      DEVICE_ID:         ${DEVICE_ID:-rpi-edge-01}
+      LOCATION:          ${LOCATION:-uetendorf}
+      SEND_INTERVAL_SEC: ${SEND_INTERVAL_SEC:-10}
+      DHT_GPIO_PIN:      ${DHT_GPIO_PIN:-D4}
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

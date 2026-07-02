@@ -10,7 +10,7 @@ targetScope = 'resourceGroup'
 // Parameter
 // ---------------------------------------------------------------------------
 
-@description('Umgebung: dev oder prod')
+@description('Umgebung: dev, test oder prod')
 @allowed(['dev', 'test', 'prod'])
 param environment string = 'dev'
 

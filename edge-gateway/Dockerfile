@@ -1,16 +1,12 @@
 # =============================================================================
 # Dockerfile – IIoT Edge Gateway (DHT22 → Azure IoT Hub)
-# Basis: python:3.11-slim (ARM64 kompatibel für Raspberry Pi 4)
+# Basis: python:3.11-slim (ARM64 kompatibel für Raspberry Pi 5)
+#
+# Der DHT22 wird über den Kernel-Treiber gelesen (siehe main.py), daher
+# braucht der Container keine GPIO-Systempakete – nur reines Python.
 # =============================================================================
 
 FROM python:3.11-slim
-
-# Systempakete für DHT22 / GPIO Zugriff
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        gcc \
-        libgpiod2 \
-        python3-dev \
-    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 

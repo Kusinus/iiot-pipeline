@@ -1,4 +1,17 @@
 # =============================================================================
 # .gitignore – IIoT Pipeline (Bicep / Azure)
 # =============================================================================
- 
+
+# Secrets / lokale Konfiguration
+.env
+*.env
+!env.example
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Bicep / Azure CLI
+.azure/
+*.bicep.json

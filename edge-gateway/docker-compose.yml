@@ -13,10 +13,9 @@ services:
     container_name: iiot-edge-gateway
     restart: unless-stopped          # Neustart bei Absturz oder Pi-Reboot
 
-    # DHT22 braucht Zugriff auf GPIO Hardware
-    privileged: true
-    devices:
-      - /dev/gpiomem:/dev/gpiomem   # GPIO Zugriff
+    # DHT22 und CPU-Temperatur werden über sysfs gelesen (Kernel-Treiber
+    # "dht11" Overlay bzw. Thermal-Zone) – dafür reicht ein normaler,
+    # unprivilegierter Container mit Lesezugriff auf /sys.
 
     environment:
       # Connection String aus .env Datei (NICHT in Git einchecken!)
@@ -26,7 +25,6 @@ services:
       DEVICE_ID:         ${DEVICE_ID:-rpi-edge-01}
       LOCATION:          ${LOCATION:-uetendorf}
       SEND_INTERVAL_SEC: ${SEND_INTERVAL_SEC:-10}
-      DHT_GPIO_PIN:      ${DHT_GPIO_PIN:-D4}
 
     logging:
       driver: "json-file"

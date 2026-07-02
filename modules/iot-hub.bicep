@@ -116,6 +116,9 @@ resource iotHub 'Microsoft.Devices/IotHubs@2023-06-30' = {
 
 resource consumerGroupProcessor 'Microsoft.Devices/IotHubs/eventHubEndpoints/ConsumerGroups@2023-06-30' = {
   name: '${iotHub.name}/events/processor'
+  properties: {
+    name: 'processor'
+  }
 }
 
 // ---------------------------------------------------------------------------

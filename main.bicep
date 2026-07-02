@@ -17,18 +17,45 @@ param environment string = 'dev'
 @description('Azure Region für alle Ressourcen')
 param location string = resourceGroup().location
 
-@description('Projektkürzel – wird in alle Ressourcennamen eingebettet')
-@maxLength(8)
-param projectName string = 'iiot'
+@description('Projektname – für Tags und Anzeige, nicht zwingend Teil der Ressourcennamen')
+@maxLength(20)
+param projectName string = 'iiot-pipeline'
 
-@description('Eindeutiger Suffix für global eindeutige Ressourcennamen')
-param uniqueSuffix string = uniqueString(resourceGroup().id)
+@description('Kurzer Workload-Name für Ressourcennamen. Bewusst ohne "iot", da der Ressourcentyp-Präfix (z.B. "iot-") das schon ausdrückt – sonst entsteht eine Wiederholung wie "iot-iiot-...".')
+@maxLength(20)
+param workloadName string = 'pipeline'
+
+@description('Kurzer, deterministischer Suffix für global eindeutige Ressourcennamen (IoT Hub, Storage, ...)')
+param uniqueSuffix string = take(uniqueString(resourceGroup().id), 6)
 
 // ---------------------------------------------------------------------------
 // Gemeinsame Variablen
 // ---------------------------------------------------------------------------
 
-var prefix = '${projectName}-${environment}'
+// Namenskonvention nach Cloud Adoption Framework:
+//   <resource-type-abkürzung>-<workload>-<environment>-<region>-<instanz>
+// "workloadName" statt "projectName", damit der Ressourcentyp-Präfix nicht
+// mit sich selbst wiederholt wird (z.B. "iot-iiot-..." bei projectName
+// "iiot-pipeline" – der Typ "iot-" sagt ja schon, dass es ein IoT Hub ist).
+// Bei global eindeutigen Ressourcentypen (IoT Hub, Storage Account, Key
+// Vault, ...) ersetzt "uniqueSuffix" (ein kurzer, deterministischer Hash)
+// die fortlaufende Instanznummer – ein Klartext-Name wie "iot-pipeline-dev-swn"
+// wäre weltweit sehr wahrscheinlich schon vergeben. Bei rein
+// RG-/Subscription-scoped Ressourcen (Container Apps, Log Analytics, ...)
+// genügt stattdessen eine fortlaufende Nummer ("001").
+//
+// Ressourcentyp-Abkürzungen (siehe https://aka.ms/azure/abbreviations):
+//   iot-   IoT Hub            st      Storage Account (keine Bindestriche!)
+//   cae-   Container Apps Env log-    Log Analytics Workspace
+//   ca-    Container App      appi-   Application Insights
+var locationAbbreviations = {
+  switzerlandnorth: 'swn'
+  switzerlandwest:  'sww'
+  westeurope:       'weu'
+  northeurope:      'neu'
+}
+var regionAbbr = locationAbbreviations[?location] ?? location
+
 var tags = {
   project:     projectName
   environment: environment
@@ -43,7 +70,7 @@ var tags = {
 module iotHub 'modules/iot-hub.bicep' = {
   name: 'deploy-iot-hub'
   params: {
-    name:        '${prefix}-hub-${uniqueSuffix}'
+    name:        'iot-${workloadName}-${environment}-${regionAbbr}-${uniqueSuffix}'
     location:    location
     environment: environment
     tags:        tags

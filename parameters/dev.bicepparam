@@ -2,6 +2,6 @@
 using '../main.bicep'
 
 param environment  = 'dev'
-param projectName  = 'iiot'
-// uniqueSuffix wird automatisch via uniqueString() generiert
+param projectName  = 'iiot-pipeline'
+// uniqueSuffix wird automatisch aus der Resource-Group-ID generiert (siehe main.bicep)
 // location wird vom Resource Group übernommen

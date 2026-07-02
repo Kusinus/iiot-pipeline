@@ -7,8 +7,9 @@
 set -euo pipefail
 
 ENVIRONMENT="${1:-dev}"
-RESOURCE_GROUP="${2:-rg-iiot-${ENVIRONMENT}}"
 LOCATION="switzerlandnorth"
+# Namenskonvention (CAF): rg-<workload>-<environment>-<region>-<instanz>
+RESOURCE_GROUP="${2:-rg-iiot-pipeline-${ENVIRONMENT}-swn-001}"
 
 echo "🚀 Deploying IIoT Pipeline"
 echo "   Umgebung:       ${ENVIRONMENT}"
@@ -20,7 +21,7 @@ echo ""
 az group create \
   --name "${RESOURCE_GROUP}" \
   --location "${LOCATION}" \
-  --tags project=iiot environment="${ENVIRONMENT}" managedBy=bicep \
+  --tags project=iiot-pipeline environment="${ENVIRONMENT}" managedBy=bicep \
   --output table
 
 echo ""

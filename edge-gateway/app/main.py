@@ -110,7 +110,11 @@ def main():
     log.info("Edge Gateway startet | Device: %s | Interval: %ss",
              DEVICE_ID, SEND_INTERVAL_SEC)
 
-    client = IoTHubDeviceClient.create_from_connection_string(CONNECTION_STRING)
+    # MQTT über WebSockets (Port 443) statt Port 8883 – in vielen Netzwerken
+    # (Schule, Firmen-WLAN) ist 8883 durch die Firewall blockiert, 443 nicht.
+    client = IoTHubDeviceClient.create_from_connection_string(
+        CONNECTION_STRING, websockets=True
+    )
     client.connect()
     log.info("Verbunden mit Azure IoT Hub ✓")
 

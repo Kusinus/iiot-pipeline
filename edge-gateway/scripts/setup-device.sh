@@ -9,11 +9,11 @@ set -euo pipefail
 
 IOTHUB_NAME="${1:-}"
 DEVICE_ID="${2:-rpi-edge-01}"
-RESOURCE_GROUP="${3:-rg-iiot-dev}"
+RESOURCE_GROUP="${3:-rg-iiot-pipeline-dev-swn-001}"
 
 if [[ -z "$IOTHUB_NAME" ]]; then
   echo "Verwendung: bash setup-device.sh <iothub-name> [device-id] [resource-group]"
-  echo "Beispiel:   bash setup-device.sh iiot-dev-hub-abc123 rpi-edge-01 rg-iiot-dev"
+  echo "Beispiel:   bash setup-device.sh iot-pipeline-dev-swn-abc123 rpi-edge-01 rg-iiot-pipeline-dev-swn-001"
   exit 1
 fi
 
@@ -36,7 +36,7 @@ CONN_STR=$(az iot hub device-identity connection-string show \
 
 # .env Datei im edge-gateway Ordner befüllen
 ENV_FILE="$(dirname "$0")/../.env"
-cp "$(dirname "$0")/../.env.example" "$ENV_FILE"
+cp "$(dirname "$0")/../env.example" "$ENV_FILE"
 sed -i "s|IOTHUB_DEVICE_CONNECTION_STRING=.*|IOTHUB_DEVICE_CONNECTION_STRING=${CONN_STR}|" "$ENV_FILE"
 sed -i "s|DEVICE_ID=.*|DEVICE_ID=${DEVICE_ID}|" "$ENV_FILE"
 

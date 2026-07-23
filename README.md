@@ -63,7 +63,7 @@ iiot-pipeline/
 ## Phasenplan
 
 - [x] Phase 1 – Analyse & Architekturdesign, IoT Hub Bicep
-- [ ] Phase 2 – Edge Gateway (Python, Raspberry Pi)
+- [x] Phase 2 – Edge Gateway (Python, Raspberry Pi)
 - [ ] Phase 3 – Container Apps Processor (Docker)
 - [ ] Phase 4 – Azure SQL Serverless + Datenschema
 - [ ] Phase 5 – Power BI Dashboard

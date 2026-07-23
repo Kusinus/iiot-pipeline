@@ -125,28 +125,3 @@ client = IoTHubDeviceClient.create_from_connection_string(
     CONNECTION_STRING, websockets=True
 )
 ```
-
-Das ist bereits fest eingebaut (kein Env-Var-Umweg), da MQTT-over-
-WebSockets ein Superset an Netzwerk-Kompatibilität bietet – es funktioniert
-überall dort, wo auch normales MQTT funktioniert, zusätzlich aber auch in
-Netzwerken mit blockiertem Port 8883.
-
-## Weitere unterwegs behobene Bugs
-
-- `scripts/setup-device.sh` referenzierte `.env.example` (mit Punkt), die
-  Vorlage-Datei im Repo heisst aber `env.example` (ohne Punkt) – das Script
-  brach beim Befüllen der `.env` ab. Fix: Pfad korrigiert.
-- `edge-gateway/app/requirements.txt` war leer, `.gitignore` enthielt keine
-  echten Regeln (kein `.env`-Ausschluss) – beides beim initialen Setup
-  ergänzt.
-
-## Warum kein `privileged: true` / keine GPIO-Bibliothek?
-
-Auf dem Pi 4 war `/dev/gpiomem` + Adafruit Blinka üblich. Auf dem Pi 5
-(RP1-Chip) bricht dieser Ansatz: Blinka braucht dort zusätzlich das Paket
-`lgpio`, das auf dem Pi ohne vorgefertigtes Wheel aus dem Quellcode gebaut
-werden muss (`swig` als Build-Abhängigkeit), und der Container bräuchte
-`privileged: true` mit Zugriff auf `/dev/gpiomem0`. Das haben wir
-ausprobiert (funktioniert, aber deutlich mehr Angriffsfläche und
-Build-Zeit). Der Kernel-Treiber-Ansatz kommt ohne beides aus: reines
-Python, unprivilegierter Container, nur Lesezugriff auf zwei sysfs-Werte.

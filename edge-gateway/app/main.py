@@ -37,7 +37,7 @@ log = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 CONNECTION_STRING = os.environ["IOTHUB_DEVICE_CONNECTION_STRING"]
 DEVICE_ID         = os.environ.get("DEVICE_ID", "rpi-edge-01")
-LOCATION          = os.environ.get("LOCATION", "uetendorf")
+LOCATION          = os.environ.get("LOCATION", "luetschental")
 SEND_INTERVAL_SEC = int(os.environ.get("SEND_INTERVAL_SEC", "10"))
 
 # DHT22 an GPIO4, ausgelesen über den Kernel-Treiber (Device-Tree-Overlay

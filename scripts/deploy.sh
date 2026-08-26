@@ -11,6 +11,19 @@ LOCATION="switzerlandnorth"
 # Namenskonvention (CAF): rg-<workload>-<environment>-<region>-<instanz>
 RESOURCE_GROUP="${2:-rg-iiot-pipeline-${ENVIRONMENT}-swn-001}"
 
+# SQL-Admin-Passwort aus untracked Secrets-Datei laden (siehe .gitignore *.env)
+SECRETS_FILE="$(dirname "$0")/../parameters/${ENVIRONMENT}.secrets.env"
+if [[ -f "$SECRETS_FILE" ]]; then
+  set -a
+  # shellcheck disable=SC1090
+  source "$SECRETS_FILE"
+  set +a
+else
+  echo "⚠️  Secrets-Datei nicht gefunden: $SECRETS_FILE"
+  echo "   Erwartet Zeile: SQL_ADMIN_PASSWORD=<starkes-passwort>"
+  exit 1
+fi
+
 echo "🚀 Deploying IIoT Pipeline"
 echo "   Umgebung:       ${ENVIRONMENT}"
 echo "   Resource Group: ${RESOURCE_GROUP}"

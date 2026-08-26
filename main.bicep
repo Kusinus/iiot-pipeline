@@ -28,6 +28,22 @@ param workloadName string = 'pipeline'
 @description('Kurzer, deterministischer Suffix für global eindeutige Ressourcennamen (IoT Hub, Storage, ...)')
 param uniqueSuffix string = take(uniqueString(resourceGroup().id), 6)
 
+@description('SQL-Admin-Login (Fallback-Auth neben Azure AD, für Entwicklung/Tests)')
+param sqlAdminLogin string = 'sqladmin'
+
+@secure()
+@description('SQL-Admin-Passwort (Fallback-Auth neben Azure AD, für Entwicklung/Tests) – wird nicht in Parameterdateien eingecheckt, siehe scripts/deploy.sh')
+param sqlAdminPassword string
+
+@description('Azure AD Objekt-ID des SQL-Administrators (z.B. eigener Benutzer für Dev)')
+param aadAdminObjectId string
+
+@description('Azure AD Login/UPN des SQL-Administrators')
+param aadAdminLogin string
+
+@description('Öffentliche IP, die für Tests/Entwicklung Zugriff auf den SQL Server erhält (Dev-Laptop / Edge-Standort)')
+param allowedClientIp string
+
 // ---------------------------------------------------------------------------
 // Gemeinsame Variablen
 // ---------------------------------------------------------------------------
@@ -77,9 +93,24 @@ module iotHub 'modules/iot-hub.bicep' = {
   }
 }
 
+module storage 'modules/storage.bicep' = {
+  name: 'deploy-storage'
+  params: {
+    name:              'sql-${workloadName}-${environment}-${regionAbbr}-${uniqueSuffix}'
+    databaseName:      'sensordata'
+    location:          location
+    environment:       environment
+    tags:              tags
+    sqlAdminLogin:     sqlAdminLogin
+    sqlAdminPassword:  sqlAdminPassword
+    aadAdminObjectId:  aadAdminObjectId
+    aadAdminLogin:     aadAdminLogin
+    allowedClientIp:   allowedClientIp
+  }
+}
+
 // Platzhalter – werden in späteren Phasen aktiviert:
 // module containerApps 'modules/container-apps.bicep' = { ... }
-// module storage       'modules/storage.bicep'        = { ... }
 // module monitoring    'modules/monitoring.bicep'     = { ... }
 
 // ---------------------------------------------------------------------------
@@ -89,3 +120,7 @@ module iotHub 'modules/iot-hub.bicep' = {
 output iotHubName          string = iotHub.outputs.name
 output iotHubHostName      string = iotHub.outputs.hostName
 output iotHubConnectionStr string = iotHub.outputs.connectionString
+
+output sqlServerName string = storage.outputs.serverName
+output sqlServerFqdn string = storage.outputs.serverFqdn
+output sqlDatabaseName string = storage.outputs.databaseName

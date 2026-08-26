@@ -18,7 +18,8 @@ import json
 import time
 import logging
 import signal
-from datetime import datetime, timezone
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from azure.iot.device import IoTHubDeviceClient, Message
 
@@ -38,7 +39,12 @@ log = logging.getLogger(__name__)
 CONNECTION_STRING = os.environ["IOTHUB_DEVICE_CONNECTION_STRING"]
 DEVICE_ID         = os.environ.get("DEVICE_ID", "rpi-edge-01")
 LOCATION          = os.environ.get("LOCATION", "luetschental")
-SEND_INTERVAL_SEC = int(os.environ.get("SEND_INTERVAL_SEC", "10"))
+SEND_INTERVAL_SEC = int(os.environ.get("SEND_INTERVAL_SEC", "15"))
+
+# Zeitstempel werden bewusst in Schweizer Lokalzeit gesendet und so auch in
+# der Datenbank gespeichert (kein UTC) – ZoneInfo berücksichtigt automatisch
+# die Sommer-/Winterzeit-Umstellung (CEST/CET).
+LOCAL_TZ = ZoneInfo("Europe/Zurich")
 
 # DHT22 an GPIO4, ausgelesen über den Kernel-Treiber (Device-Tree-Overlay
 # "dht11", unterstützt auch DHT22). Voraussetzung auf dem Pi:
@@ -91,7 +97,10 @@ def read_sensor() -> dict | None:
         return {
             "deviceId":       DEVICE_ID,
             "location":       LOCATION,
-            "timestamp":      datetime.now(timezone.utc).isoformat(),
+            # Naiver String ohne Offset (z.B. "2026-08-26T16:16:15.847686") –
+            # die Uhrzeit selbst ist schon lokal, kein UTC-Suffix, damit die
+            # DB den Wert unverändert als Lokalzeit übernimmt.
+            "timestamp":      datetime.now(LOCAL_TZ).replace(tzinfo=None).isoformat(),
             "temperature":    round(temperature, 1),   # °C
             "humidity":       round(humidity, 1),       # %
             "sensorType":     "DHT22",

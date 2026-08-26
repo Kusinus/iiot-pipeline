@@ -24,7 +24,7 @@ services:
       # Gerätekonfiguration
       DEVICE_ID:         ${DEVICE_ID:-rpi-edge-01}
       LOCATION:          ${LOCATION:-luetschental}
-      SEND_INTERVAL_SEC: ${SEND_INTERVAL_SEC:-10}
+      SEND_INTERVAL_SEC: ${SEND_INTERVAL_SEC:-15}
 
     logging:
       driver: "json-file"

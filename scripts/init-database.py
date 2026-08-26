@@ -11,10 +11,22 @@ nötig) – dieselbe Bibliothek, die später auch der Processor verwendet.
 """
 
 import os
+import re
 import sys
 from pathlib import Path
 
 import pytds
+
+# "GO" ist nur ein Batch-Trenner für sqlcmd/SSMS, kein T-SQL – muss vor dem
+# Ausführen selbst aufgesplittet werden (u.a. weil CREATE VIEW als einziges
+# Statement in seinem Batch stehen muss).
+GO_SPLIT = re.compile(r"^\s*GO\s*$", re.IGNORECASE | re.MULTILINE)
+
+def run_sql_file(cur, path: Path):
+    for batch in GO_SPLIT.split(path.read_text()):
+        batch = batch.strip()
+        if batch:
+            cur.execute(batch)
 
 def main():
     if len(sys.argv) != 4:
@@ -27,8 +39,7 @@ def main():
         print("Fehler: Umgebungsvariable SQL_ADMIN_PASSWORD nicht gesetzt.")
         sys.exit(1)
 
-    schema_path = Path(__file__).parent.parent / "database" / "schema.sql"
-    schema_sql = schema_path.read_text()
+    database_dir = Path(__file__).parent.parent / "database"
 
     # Azure SQL verlangt eine verschlüsselte Verbindung; python-tds aktiviert
     # TLS nur, wenn ein CA-Bundle übergeben wird (System-Bundle unter Fedora).
@@ -42,9 +53,10 @@ def main():
     with pytds.connect(server=server, database=database, user=login, password=password,
                         cafile=cafile, validate_host=False) as conn:
         with conn.cursor() as cur:
-            cur.execute(schema_sql)
+            run_sql_file(cur, database_dir / "schema.sql")
+            run_sql_file(cur, database_dir / "views.sql")
         conn.commit()
-    print("✅ Schema angelegt (oder bereits vorhanden).")
+    print("✅ Schema und Views angelegt (oder bereits vorhanden).")
 
 if __name__ == "__main__":
     main()

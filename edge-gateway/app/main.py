@@ -22,6 +22,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from azure.iot.device import IoTHubDeviceClient, Message
+from asyncua.sync import Client as OpcUaClient
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -55,6 +56,12 @@ DHT_HUMIDITY_FILE    = "/sys/bus/iio/devices/iio:device0/in_humidityrelative_inp
 
 CPU_THERMAL_ZONE = "/sys/class/thermal/thermal_zone0/temp"
 
+# Zweite, heterogene Datenquelle (siehe Themenantrag): simulierte
+# Industrieanlage (Motordrehzahl/Druck/Durchfluss) via OPC UA, läuft als
+# eigener Container auf dem Pi (siehe opcua-simulator/).
+OPCUA_ENDPOINT       = os.environ.get("OPCUA_ENDPOINT", "opc.tcp://opcua-simulator:4840/freeopcua/server/")
+OPCUA_NAMESPACE_URI  = "http://iiot-pipeline.local/opcua-sim"
+
 # ---------------------------------------------------------------------------
 # Graceful Shutdown
 # ---------------------------------------------------------------------------
@@ -79,6 +86,53 @@ def read_cpu_temperature() -> float | None:
     except (OSError, ValueError) as e:
         log.warning("CPU-Temperatur konnte nicht gelesen werden: %s", e)
         return None
+
+# ---------------------------------------------------------------------------
+# OPC-UA-Client (zweite Datenquelle: simulierte Industrieanlage)
+# ---------------------------------------------------------------------------
+class OpcUaReader:
+    """
+    Liest Motordrehzahl/Druck/Durchfluss vom OPC-UA-Simulator. Verbindung
+    ist unabhängig vom DHT22 – ist der OPC-UA-Server (noch) nicht
+    erreichbar, werden die DHT22-Werte trotzdem weiter gesendet, nur mit
+    leeren OPC-UA-Feldern (None).
+    """
+
+    def __init__(self):
+        self._client = None
+        self._nodes = None
+        self._connect()
+
+    def _connect(self):
+        try:
+            client = OpcUaClient(url=OPCUA_ENDPOINT)
+            client.connect()
+            idx = client.get_namespace_index(OPCUA_NAMESPACE_URI)
+            asset = client.nodes.objects.get_child(f"{idx}:IndustrialAsset")
+            self._nodes = {
+                "motorSpeed": asset.get_child(f"{idx}:MotorSpeed"),
+                "pressure":   asset.get_child(f"{idx}:Pressure"),
+                "flowRate":   asset.get_child(f"{idx}:FlowRate"),
+            }
+            self._client = client
+            log.info("Verbunden mit OPC-UA-Server ✓")
+        except Exception as e:
+            log.warning("OPC-UA-Server nicht erreichbar (Simulator noch am Starten?): %s", e)
+            self._client = None
+            self._nodes = None
+
+    def read(self) -> dict:
+        if self._client is None:
+            self._connect()
+        if self._client is None:
+            return {"motorSpeed": None, "pressure": None, "flowRate": None}
+
+        try:
+            return {name: node.read_value() for name, node in self._nodes.items()}
+        except Exception as e:
+            log.warning("OPC-UA-Lesefehler, verbinde neu: %s", e)
+            self._client = None
+            return {"motorSpeed": None, "pressure": None, "flowRate": None}
 
 # ---------------------------------------------------------------------------
 # Telemetrie-Nachricht aufbauen
@@ -119,6 +173,8 @@ def main():
     log.info("Edge Gateway startet | Device: %s | Interval: %ss",
              DEVICE_ID, SEND_INTERVAL_SEC)
 
+    opcua_reader = OpcUaReader()
+
     # MQTT über WebSockets (Port 443) statt Port 8883 – in vielen Netzwerken
     # (Schule, Firmen-WLAN) ist 8883 durch die Firewall blockiert, 443 nicht.
     client = IoTHubDeviceClient.create_from_connection_string(
@@ -134,6 +190,8 @@ def main():
             payload = read_sensor()
 
             if payload:
+                payload.update(opcua_reader.read())
+
                 msg = Message(json.dumps(payload))
                 msg.content_encoding = "utf-8"
                 msg.content_type     = "application/json"
@@ -143,9 +201,9 @@ def main():
                 msg.custom_properties["location"]   = LOCATION
 
                 client.send_message(msg)
-                log.info("Gesendet: T=%.1f°C | H=%.1f%% | CPU=%s°C | %s",
-                         payload["temperature"], payload["humidity"],
-                         payload["cpuTemperature"], payload["timestamp"])
+                log.info("Gesendet: T=%.1f°C | H=%.1f%% | CPU=%s°C | Motor=%s U/min | Druck=%s bar | Fluss=%s l/min | %s",
+                         payload["temperature"], payload["humidity"], payload["cpuTemperature"],
+                         payload["motorSpeed"], payload["pressure"], payload["flowRate"], payload["timestamp"])
                 consecutive_errors = 0
             else:
                 consecutive_errors += 1

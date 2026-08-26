@@ -6,12 +6,27 @@
 # =============================================================================
 
 services:
+  opcua-simulator:
+    build:
+      context: ./opcua-simulator
+      dockerfile: Dockerfile
+    container_name: iiot-opcua-simulator
+    restart: unless-stopped
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   edge-gateway:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: iiot-edge-gateway
     restart: unless-stopped          # Neustart bei Absturz oder Pi-Reboot
+    depends_on:
+      - opcua-simulator
 
     # DHT22 und CPU-Temperatur werden über sysfs gelesen (Kernel-Treiber
     # "dht11" Overlay bzw. Thermal-Zone) – dafür reicht ein normaler,
@@ -25,6 +40,10 @@ services:
       DEVICE_ID:         ${DEVICE_ID:-rpi-edge-01}
       LOCATION:          ${LOCATION:-luetschental}
       SEND_INTERVAL_SEC: ${SEND_INTERVAL_SEC:-15}
+
+      # Zweite Datenquelle: OPC-UA-Simulator (Container-Name = DNS-Name
+      # im gemeinsamen Compose-Netzwerk, kein Host-Port nötig)
+      OPCUA_ENDPOINT: opc.tcp://opcua-simulator:4840/freeopcua/server/
 
     logging:
       driver: "json-file"

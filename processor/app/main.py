@@ -45,8 +45,9 @@ SQL_CAFILE = os.environ.get("SQL_CAFILE", "/etc/ssl/certs/ca-certificates.crt")
 
 INSERT_SQL = """
     INSERT INTO dbo.SensorReadings
-        (DeviceId, Location, ReadingTimestamp, Temperature, Humidity, SensorType, CpuTemperature)
-    VALUES (%s, %s, %s, %s, %s, %s, %s)
+        (DeviceId, Location, ReadingTimestamp, Temperature, Humidity, SensorType, CpuTemperature,
+         MotorSpeed, Pressure, FlowRate)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
 """
 
 # ---------------------------------------------------------------------------
@@ -87,6 +88,9 @@ class Processor:
             to_decimal(payload.get("humidity")),
             payload.get("sensorType"),
             to_decimal(payload.get("cpuTemperature")),
+            to_decimal(payload.get("motorSpeed")),
+            to_decimal(payload.get("pressure")),
+            to_decimal(payload.get("flowRate")),
         )
         try:
             with self.conn.cursor() as cur:
@@ -109,9 +113,9 @@ class Processor:
         try:
             payload = json.loads(event.body_as_str(encoding="utf-8"))
             self.insert(payload)
-            log.info("Gespeichert: %s | T=%s°C | H=%s%% | %s",
+            log.info("Gespeichert: %s | T=%s°C | H=%s%% | Motor=%s U/min | %s",
                       payload.get("deviceId"), payload.get("temperature"),
-                      payload.get("humidity"), payload.get("timestamp"))
+                      payload.get("humidity"), payload.get("motorSpeed"), payload.get("timestamp"))
         except (json.JSONDecodeError, KeyError) as e:
             log.warning("Ungültige Nachricht übersprungen: %s", e)
         partition_context.update_checkpoint(event)

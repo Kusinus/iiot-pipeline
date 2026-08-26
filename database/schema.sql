@@ -32,3 +32,20 @@ BEGIN
     CREATE UNIQUE INDEX UQ_SensorReadings_Device_Timestamp
         ON dbo.SensorReadings (DeviceId, ReadingTimestamp);
 END
+
+-- Zweite, heterogene Datenquelle: simulierte Industrieanlage via OPC UA
+-- (siehe edge-gateway/opcua-simulator/), in dieselbe Nachricht integriert.
+-- Nullable, da bestehende Zeilen und ein evtl. nicht erreichbarer
+-- OPC-UA-Server keine Werte liefern.
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('dbo.SensorReadings') AND name = 'MotorSpeed')
+BEGIN
+    ALTER TABLE dbo.SensorReadings ADD MotorSpeed DECIMAL(7,1) NULL; -- U/min
+END
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('dbo.SensorReadings') AND name = 'Pressure')
+BEGIN
+    ALTER TABLE dbo.SensorReadings ADD Pressure DECIMAL(5,2) NULL; -- bar
+END
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('dbo.SensorReadings') AND name = 'FlowRate')
+BEGIN
+    ALTER TABLE dbo.SensorReadings ADD FlowRate DECIMAL(6,1) NULL; -- l/min
+END

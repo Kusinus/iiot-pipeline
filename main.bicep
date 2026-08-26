@@ -44,6 +44,9 @@ param aadAdminLogin string
 @description('Öffentliche IP, die für Tests/Entwicklung Zugriff auf den SQL Server erhält (Dev-Laptop / Edge-Standort)')
 param allowedClientIp string
 
+@description('Image für den Processor-Container. Vor dem ersten "az acr build" zeigt dies auf einen Platzhalter (siehe container-apps.bicep).')
+param processorImage string = 'mcr.microsoft.com/k8se/quickstart:latest'
+
 // ---------------------------------------------------------------------------
 // Gemeinsame Variablen
 // ---------------------------------------------------------------------------
@@ -109,9 +112,26 @@ module storage 'modules/storage.bicep' = {
   }
 }
 
-// Platzhalter – werden in späteren Phasen aktiviert:
-// module containerApps 'modules/container-apps.bicep' = { ... }
-// module monitoring    'modules/monitoring.bicep'     = { ... }
+module containerApps 'modules/container-apps.bicep' = {
+  name: 'deploy-container-apps'
+  params: {
+    name:                     '${workloadName}-${environment}-${regionAbbr}-${uniqueSuffix}'
+    acrName:                  'acr${workloadName}${environment}${regionAbbr}${uniqueSuffix}'
+    location:                 location
+    tags:                     tags
+    processorImage:           processorImage
+    eventHubConnectionString: iotHub.outputs.eventHubServiceConnectionString
+    eventHubName:             iotHub.outputs.eventHubPath
+    consumerGroup:            iotHub.outputs.consumerGroupName
+    sqlServer:                storage.outputs.serverFqdn
+    sqlDatabase:              storage.outputs.databaseName
+    sqlUser:                  sqlAdminLogin
+    sqlPassword:              sqlAdminPassword
+  }
+}
+
+// Platzhalter – wird in einer späteren Phase aktiviert:
+// module monitoring 'modules/monitoring.bicep' = { ... }
 
 // ---------------------------------------------------------------------------
 // Outputs
@@ -124,3 +144,7 @@ output iotHubConnectionStr string = iotHub.outputs.connectionString
 output sqlServerName string = storage.outputs.serverName
 output sqlServerFqdn string = storage.outputs.serverFqdn
 output sqlDatabaseName string = storage.outputs.databaseName
+
+output acrLoginServer string = containerApps.outputs.acrLoginServer
+output acrName string = containerApps.outputs.acrName
+output processorContainerAppName string = containerApps.outputs.containerAppName

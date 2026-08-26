@@ -143,5 +143,8 @@ output eventHubPath string = iotHub.properties.eventHubEndpoints.events.path
 @description('Consumer Group Name für den Processor')
 output consumerGroupName string = 'processor'
 
+@description('Event-Hub-kompatible Connection String für den Processor (Policy "service": nur ServiceConnect, kein iothubowner nötig)')
+output eventHubServiceConnectionString string = 'Endpoint=${iotHub.properties.eventHubEndpoints.events.endpoint};SharedAccessKeyName=service;SharedAccessKey=${first(filter(iotHub.listKeys().value, k => k.keyName == 'service')).primaryKey}'
+
 @description('Ressource ID des IoT Hubs')
 output resourceId string = iotHub.id

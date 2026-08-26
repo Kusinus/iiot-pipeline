@@ -39,14 +39,19 @@ iiot-pipeline/
 ├── main.bicep                    # Einstiegspunkt – orchestriert alle Module
 ├── modules/
 │   ├── iot-hub.bicep             # Azure IoT Hub + Consumer Groups
-│   ├── container-apps.bicep      # Verarbeitungsschicht (Docker)
+│   ├── container-apps.bicep      # Verarbeitungsschicht (Container App Environment, ACR)
 │   ├── storage.bicep             # Azure SQL Serverless
-│   └── monitoring.bicep          # Log Analytics, Alerts
+│   └── monitoring.bicep          # Log Analytics, Alerts (geplant)
 ├── parameters/
 │   ├── dev.bicepparam            # Dev-Umgebung (Free Tier, 1 Tag Retention)
 │   └── prod.bicepparam           # Prod-Umgebung (S1, 3 Tage Retention)
+├── database/
+│   └── schema.sql                # Zeitreihen-Tabelle dbo.SensorReadings
+├── edge-gateway/                 # Python-Gateway auf dem Raspberry Pi (DHT22 → IoT Hub)
+├── processor/                    # Python-Processor (IoT Hub Event Hub → Azure SQL), läuft als Container App
 └── scripts/
-    └── deploy.sh                 # Azure CLI Deployment-Skript
+    ├── deploy.sh                 # Azure CLI Deployment-Skript
+    └── init-database.py          # Schema in Azure SQL anlegen
 ```
 
 ---
@@ -64,8 +69,8 @@ iiot-pipeline/
 
 - [x] Phase 1 – Analyse & Architekturdesign, IoT Hub Bicep
 - [x] Phase 2 – Edge Gateway (Python, Raspberry Pi)
-- [ ] Phase 3 – Container Apps Processor (Docker)
-- [ ] Phase 4 – Azure SQL Serverless + Datenschema
+- [x] Phase 3 – Container Apps Processor (Docker)
+- [x] Phase 4 – Azure SQL Serverless + Datenschema
 - [ ] Phase 5 – Power BI Dashboard
 - [ ] Phase 6 – Evaluation & Dokumentation
 

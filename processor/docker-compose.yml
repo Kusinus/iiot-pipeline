@@ -1,0 +1,29 @@
+# =============================================================================
+# docker-compose.yml – Processor lokal testen (vor Deployment nach Azure
+# Container Apps)
+#   1. cp env.example .env  → Werte eintragen
+#   2. docker compose up --build
+# =============================================================================
+
+services:
+  processor:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: iiot-processor
+    restart: unless-stopped
+
+    environment:
+      EVENTHUB_CONNECTION_STRING: ${EVENTHUB_CONNECTION_STRING}
+      EVENTHUB_NAME:              ${EVENTHUB_NAME}
+      CONSUMER_GROUP:             ${CONSUMER_GROUP:-processor}
+      SQL_SERVER:                 ${SQL_SERVER}
+      SQL_DATABASE:               ${SQL_DATABASE}
+      SQL_USER:                   ${SQL_USER}
+      SQL_PASSWORD:               ${SQL_PASSWORD}
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

@@ -101,6 +101,36 @@ docker compose up -d --build
 docker compose logs -f
 ```
 
+## Systemuhr: NTP (UDP/123) im Testnetz unzuverlässig
+
+Der Pi hat keine gepufferte RTC – nach längerem Stromverlust fällt die Uhr
+auf einen alten Stand zurück (`fake-hwclock` rettet nur den letzten
+bekannten Stand vor dem Shutdown, keine echte Live-Zeit). Eigentlich
+korrigiert NTP das beim Boot automatisch, aber in diesem Testnetz blieb
+`systemd-timesyncd` dauerhaft `System clock synchronized: no` – ein
+direkter NTP-Test (rohe UDP/123-Anfrage) gegen mehrere grosse Server
+(Cloudflare, Google, `pool.ntp.org`) blieb ganz ohne Antwort, obwohl
+DNS-Auflösung und TCP/443 zu beliebigen Hosts einwandfrei funktionieren.
+Selbst nach Freigabe von UDP/123 in der OPNsense-Firewall kam weiterhin
+keine Antwort zurück – vermutlich blockt ein IPS/Suricata-Modul NTP
+zusätzlich zur reinen Portregel (häufiger Default wegen NTP-Amplification-
+Angriffen), das war zum Testzeitpunkt nicht abschliessend geklärt.
+
+Eine falsche Systemzeit lässt die TLS-Zertifikatsprüfung fehlschlagen –
+sowohl beim `docker pull` (Image-Build) als auch bei der MQTT-Verbindung
+des Edge Gateway zum IoT Hub (`certificate has expired or is not yet
+valid`). Workaround, unabhängig vom NTP-Ausgang: Die Uhr wird stattdessen
+per HTTPS-Date-Header gesetzt (Port 443 ist ohnehin offen) – als
+systemd-Service, der vor `docker.service` läuft:
+
+```bash
+sudo bash edge-gateway/scripts/setup-httpdate-fix.sh
+```
+
+Getestet inkl. vollständigem Reboot: Der Service läuft beim Hochfahren,
+setzt die Uhr, und erst danach startet Docker den Container – keine
+TLS-Fehler mehr, auch nicht nach Stromverlust/Neustart.
+
 ## Firewall: MQTT über HTTPS/Port 443 statt Port 8883
 
 Der Azure IoT SDK verbindet standardmässig per MQTT auf **Port 8883**. In

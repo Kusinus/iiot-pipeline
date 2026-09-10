@@ -6,6 +6,8 @@
 .env
 *.env
 !env.example
+load-test/devices.json
+load-test/.venv/
 
 # Python
 __pycache__/

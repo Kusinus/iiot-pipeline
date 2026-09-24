@@ -18,6 +18,7 @@ import json
 import time
 import logging
 import signal
+import concurrent.futures
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -62,6 +63,13 @@ CPU_THERMAL_ZONE = "/sys/class/thermal/thermal_zone0/temp"
 OPCUA_ENDPOINT       = os.environ.get("OPCUA_ENDPOINT", "opc.tcp://opcua-simulator:4840/freeopcua/server/")
 OPCUA_NAMESPACE_URI  = "http://iiot-pipeline.local/opcua-sim"
 
+# Harte Obergrenze für OPC-UA-Aufrufe: verhindert, dass eine eingefrorene
+# OPC-UA-Verbindung die gesamte Hauptschleife blockiert. Vorfall 08.–24.09.2026:
+# ein Read-Aufruf hing ohne Exception fest (nur der interne
+# Secure-Channel-Renewal-Background-Task der SDK lief noch sichtbar im Log),
+# wodurch auch die DHT22-Übertragung 16 Tage lang komplett zum Erliegen kam.
+OPCUA_CALL_TIMEOUT_SEC = 5
+
 # ---------------------------------------------------------------------------
 # Graceful Shutdown
 # ---------------------------------------------------------------------------
@@ -96,30 +104,57 @@ class OpcUaReader:
     ist unabhängig vom DHT22 – ist der OPC-UA-Server (noch) nicht
     erreichbar, werden die DHT22-Werte trotzdem weiter gesendet, nur mit
     leeren OPC-UA-Feldern (None).
+
+    Jeder OPC-UA-Aufruf (Connect wie Read) läuft in einem separaten
+    Worker-Thread mit hartem Timeout (OPCUA_CALL_TIMEOUT_SEC) – ein
+    hängender Aufruf blockiert damit nie die Hauptschleife (siehe Vorfall
+    oben). Python kann einen blockierten Thread nicht erzwungen abbrechen;
+    nach einem Timeout wird der Executor daher verworfen (der hängende
+    Thread bleibt zurück, wird aber nie wieder verwendet) und beim
+    nächsten Aufruf ein neuer erstellt.
     """
 
     def __init__(self):
         self._client = None
         self._nodes = None
+        self._executor = self._new_executor()
         self._connect()
+
+    @staticmethod
+    def _new_executor() -> concurrent.futures.ThreadPoolExecutor:
+        return concurrent.futures.ThreadPoolExecutor(max_workers=1, thread_name_prefix="opcua")
+
+    def _call_with_timeout(self, fn):
+        future = self._executor.submit(fn)
+        try:
+            return future.result(timeout=OPCUA_CALL_TIMEOUT_SEC)
+        except concurrent.futures.TimeoutError:
+            self._executor = self._new_executor()
+            raise
+
+    def _do_connect(self):
+        client = OpcUaClient(url=OPCUA_ENDPOINT)
+        client.connect()
+        idx = client.get_namespace_index(OPCUA_NAMESPACE_URI)
+        asset = client.nodes.objects.get_child(f"{idx}:IndustrialAsset")
+        nodes = {
+            "motorSpeed": asset.get_child(f"{idx}:MotorSpeed"),
+            "pressure":   asset.get_child(f"{idx}:Pressure"),
+            "flowRate":   asset.get_child(f"{idx}:FlowRate"),
+        }
+        return client, nodes
 
     def _connect(self):
         try:
-            client = OpcUaClient(url=OPCUA_ENDPOINT)
-            client.connect()
-            idx = client.get_namespace_index(OPCUA_NAMESPACE_URI)
-            asset = client.nodes.objects.get_child(f"{idx}:IndustrialAsset")
-            self._nodes = {
-                "motorSpeed": asset.get_child(f"{idx}:MotorSpeed"),
-                "pressure":   asset.get_child(f"{idx}:Pressure"),
-                "flowRate":   asset.get_child(f"{idx}:FlowRate"),
-            }
-            self._client = client
+            self._client, self._nodes = self._call_with_timeout(self._do_connect)
             log.info("Verbunden mit OPC-UA-Server ✓")
         except Exception as e:
             log.warning("OPC-UA-Server nicht erreichbar (Simulator noch am Starten?): %s", e)
             self._client = None
             self._nodes = None
+
+    def _do_read(self):
+        return {name: node.read_value() for name, node in self._nodes.items()}
 
     def read(self) -> dict:
         if self._client is None:
@@ -128,9 +163,10 @@ class OpcUaReader:
             return {"motorSpeed": None, "pressure": None, "flowRate": None}
 
         try:
-            return {name: node.read_value() for name, node in self._nodes.items()}
+            return self._call_with_timeout(self._do_read)
         except Exception as e:
-            log.warning("OPC-UA-Lesefehler, verbinde neu: %s", e)
+            log.warning("OPC-UA-Lesefehler oder Timeout (>%ss), verbinde neu: %s",
+                        OPCUA_CALL_TIMEOUT_SEC, e)
             self._client = None
             return {"motorSpeed": None, "pressure": None, "flowRate": None}
 

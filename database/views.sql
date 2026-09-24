@@ -14,11 +14,23 @@ SELECT
     Temperature,
     Humidity,
     CpuTemperature,
-    DATEDIFF(SECOND, ReadingTimestamp, SYSUTCDATETIME()) AS SecondsSinceReading
+    MotorSpeed,
+    Pressure,
+    FlowRate,
+    -- ReadingTimestamp ist Lokalzeit (Europe/Zurich, siehe edge-gateway),
+    -- daher Vergleich gegen die ebenfalls nach Lokalzeit umgerechnete
+    -- aktuelle Zeit statt SYSUTCDATETIME() direkt (sonst 2h/1h Versatz je
+    -- nach Sommer-/Winterzeit).
+    DATEDIFF(SECOND, ReadingTimestamp,
+             CAST(SYSUTCDATETIME() AT TIME ZONE 'UTC' AT TIME ZONE 'W. Europe Standard Time' AS DATETIME2)
+    ) AS SecondsSinceReading
 FROM (
     SELECT *,
            ROW_NUMBER() OVER (PARTITION BY DeviceId ORDER BY ReadingTimestamp DESC) AS rn
     FROM dbo.SensorReadings
+    WHERE DeviceId = 'rpi-edge-01'  -- nur das reale Produktivgerät; schliesst
+                                     -- Lasttest- und alte Testgeräte-Identitäten aus,
+                                     -- die sonst als veraltete Zusatzzeilen erscheinen
 ) latest
 WHERE rn = 1;
 GO
@@ -38,7 +50,17 @@ SELECT
     MIN(Humidity)         AS MinHumidity,
     MAX(Humidity)         AS MaxHumidity,
     AVG(CpuTemperature)   AS AvgCpuTemperature,
+    AVG(MotorSpeed)       AS AvgMotorSpeed,
+    MIN(MotorSpeed)       AS MinMotorSpeed,
+    MAX(MotorSpeed)       AS MaxMotorSpeed,
+    AVG(Pressure)         AS AvgPressure,
+    MIN(Pressure)         AS MinPressure,
+    MAX(Pressure)         AS MaxPressure,
+    AVG(FlowRate)         AS AvgFlowRate,
+    MIN(FlowRate)         AS MinFlowRate,
+    MAX(FlowRate)         AS MaxFlowRate,
     COUNT(*)              AS ReadingCount
 FROM dbo.SensorReadings
+WHERE DeviceId = 'rpi-edge-01'  -- siehe vw_LatestReadings
 GROUP BY DeviceId, Location, DATEADD(HOUR, DATEDIFF(HOUR, 0, ReadingTimestamp), 0);
 GO

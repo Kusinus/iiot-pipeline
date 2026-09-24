@@ -17,3 +17,7 @@ __pycache__/
 # Bicep / Azure CLI
 .azure/
 *.bicep.json
+
+# Interne Arbeitsunterlagen (Thesis-Dokument, Zeitplan) – nicht Teil des
+# öffentlichen Code-Repos
+assets/

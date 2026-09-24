@@ -30,6 +30,8 @@ Azure SQL Serverless (Zeitreihendaten)
 Power BI Dashboard
 ```
 
+![Architektur der IIoT Cloud-Pipeline](docs/architektur.svg)
+
 ---
 
 ## Projektstruktur
@@ -46,12 +48,16 @@ iiot-pipeline/
 │   ├── dev.bicepparam            # Dev-Umgebung (Free Tier, 1 Tag Retention)
 │   └── prod.bicepparam           # Prod-Umgebung (S1, 3 Tage Retention)
 ├── database/
-│   └── schema.sql                # Zeitreihen-Tabelle dbo.SensorReadings
-├── edge-gateway/                 # Python-Gateway auf dem Raspberry Pi (DHT22 → IoT Hub)
+│   ├── schema.sql                # Zeitreihen-Tabelle dbo.SensorReadings
+│   └── views.sql                 # Views für Power BI (Live-Ansicht, Zeitreihenauswertung)
+├── edge-gateway/                 # Python-Gateway auf dem Raspberry Pi (DHT22 + OPC UA → IoT Hub)
+│   └── opcua-simulator/          # Simulierte Industrieanlage (Motordrehzahl/Druck/Durchfluss) via OPC UA
 ├── processor/                    # Python-Processor (IoT Hub Event Hub → Azure SQL), läuft als Container App
+├── load-test/                    # Synthetischer Lasttest (N virtuelle Geräte) + Ergebnisberichte
+├── docs/                         # Architekturdiagramm, Power-BI-Anleitung
 └── scripts/
     ├── deploy.sh                 # Azure CLI Deployment-Skript
-    └── init-database.py          # Schema in Azure SQL anlegen
+    └── init-database.py          # Schema + Views in Azure SQL anlegen
 ```
 
 ---
@@ -71,8 +77,8 @@ iiot-pipeline/
 - [x] Phase 2 – Edge Gateway (Python, Raspberry Pi)
 - [x] Phase 3 – Container Apps Processor (Docker)
 - [x] Phase 4 – Azure SQL Serverless + Datenschema
-- [ ] Phase 5 – Power BI Dashboard
-- [ ] Phase 6 – Evaluation & Dokumentation
+- [x] Phase 5 – Power BI Dashboard ([Anleitung](docs/power-bi-dashboard.md))
+- [x] Phase 6 – Evaluation & Dokumentation ([Lasttest-Bericht](load-test/LASTTEST_BERICHT.md), [Row-Count/Latenz](load-test/ROWCOUNT_LATENZ_BERICHT.md), [Redeployment-Test](load-test/REDEPLOY_BERICHT.md))
 
 ---
 

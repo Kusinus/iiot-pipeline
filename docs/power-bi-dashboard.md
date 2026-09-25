@@ -42,33 +42,33 @@ az sql server firewall-rule create \
 4. Anmeldung: SQL-Server-Authentifizierung (`sqladmin` + Passwort) oder
    Microsoft-Konto (Azure AD).
 5. Im Navigator auswählen:
-   - `dbo.vw_LatestReadings` (Live-Kacheln, Seite 1)
-   - `dbo.SensorReadings` (Rohdaten mit Zeitstempel für die Zeitreihe, Seite 2)
+   - `dbo.vw_LatestReadings` (Live-Kacheln)
+   - `dbo.SensorReadings` (Rohdaten-Zeitreihe)
+   - `dbo.vw_HourlyAggregates` (Stunden-Trend und Lückenanalyse)
 
-## 3. Empfohlene Visuals
+## 3. Umgesetzter Report
 
-**Seite 1 – Live-Ansicht** (Basis: `vw_LatestReadings`, ein Wert pro Gerät):
+Der Report `iiot-pipeline-sensordata-report` ist live mit einem separat
+publizierten Semantic Model (`iiot-pipeline-sensordata-model`) verbunden und
+kombiniert alle drei Quellen auf einer gemeinsamen Report-Seite:
 
-| Visual | Feld(er) | Zweck |
-|---|---|---|
-| Kachel (Card) | `Temperature` (aktuellster Wert `rpi-edge-01`) | Momentanwert Temperatur |
-| Kachel (Card) | `Humidity` | Momentanwert Luftfeuchtigkeit |
-| Kachel (Card) | `SecondsSinceReading` | "Wie alt ist der Wert?" – zeigt Ausfälle sofort (z.B. > 30 s bei 15 s-Intervall = Problem) |
-| Tabelle | `DeviceId`, `Location`, `ReadingTimestamp`, `Temperature`, `Humidity`, `CpuTemperature` | Übersicht aller Geräte (aktuell: nur `rpi-edge-01`, aber Struktur ist mehrgerätefähig) |
+| Bereich | Quelle | Feld(er) | Zweck |
+|---|---|---|---|
+| Live-Kacheln | `dbo.vw_LatestReadings` | `Temperature`, `Humidity`, `CpuTemperature` (Zusammenfassung "Erster Wert") | Zuletzt erfasster Messwert je Grösse |
+| Zeitreihe | `dbo.SensorReadings` | X = `ReadingTimestamp`, Y = `Temperature`, `Humidity`, `CpuTemperature` | Verlauf einzelner Messpunkte, bewusst ohne Vorab-Aggregation |
+| Stunden-Trend | `dbo.vw_HourlyAggregates` | X = `HourBucket`, Y = Stundenmittelwerte | Übersicht über längere Zeiträume |
+| Lückenanalyse | `dbo.vw_HourlyAggregates` | X = `HourBucket`, Y = `ReadingCount` | Erkennung von Erfassungsunterbrüchen (fehlende Balken) |
 
-**Seite 2 – Zeitreihenauswertung** (Basis: `dbo.SensorReadings`, Rohdaten mit
-Zeitstempel – bewusst ohne Vorab-Aggregation, damit einzelne Messpunkte statt
-Stundenmittelwerte sichtbar sind):
+Hinweise:
 
-| Visual | Feld(er) | Zweck |
-|---|---|---|
-| Liniendiagramm | X = `ReadingTimestamp`, Y = `Temperature`, `Humidity`, `CpuTemperature` | Verlauf der einzelnen Messwerte über die Zeit |
-| Slicer | `Location` bzw. Datumsbereich auf `ReadingTimestamp` | Filterung |
-
-Bei grösseren Zeiträumen wächst die Punktzahl entsprechend der
-Sende-Frequenz (alle 15s) – für eine performantere, vorab aggregierte
-Alternative steht `dbo.vw_HourlyAggregates` (Avg/Min/Max pro Stunde) bereit,
-wurde im umgesetzten Report aber nicht verwendet.
+- Die Live-Kacheln müssen auf `vw_LatestReadings` (nicht auf
+  `SensorReadings`) gebunden sein, sonst zeigen sie den Durchschnitt über die
+  gesamte Historie statt des aktuellsten Werts.
+- Im Stunden-Trend zieht Power BI über Datenlücken eine gerade Linie
+  (Interpolationsartefakt). Massgeblich für Unterbrüche ist ausschliesslich
+  der `ReadingCount`-Chart.
+- Eine Kachel für `MotorSpeed` (OPC-UA-Simulator) ist noch nicht ergänzt; die
+  Felder sind in beiden Views vorhanden.
 
 ## 4. Aktualisierung / "Live"-Charakter
 

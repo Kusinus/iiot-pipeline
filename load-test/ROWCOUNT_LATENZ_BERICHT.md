@@ -46,13 +46,19 @@ list`) – kein zusätzlicher Testlauf nötig.
 | 07.09. | 5'696 | 5'695 | −1 |
 | 08.09. | 4'855 | 4'852 | −3 |
 
-**Befund 1 – Normalbetrieb ist 1:1 abgeglichen:** An allen Tagen ausserhalb
-des Vorfalls (26.–30.08., 05.–08.09.) stimmen Hub- und DB-Zählung bis auf
-±1–4 Nachrichten exakt überein (Abweichung durch Tagesgrenzen-Rundung bei der
-UTC/Lokalzeit-Konvertierung, nicht durch Datenverlust – siehe Abschnitt 4).
-Das bestätigt: unter Normalbedingungen erreicht **jede** vom Hub
-angenommene Nachricht auch die Datenbank; die Idempotenz-Absicherung über den
-Unique Index (`DeviceId`, `ReadingTimestamp`, siehe `database/schema.sql`)
+**Befund 1 – Normalbetrieb ist tagesgrenzenbedingt, aber lückenlos
+abgeglichen:** An allen Tagen ausserhalb des Vorfalls (26.–30.08.,
+05.–08.09.) weichen Hub- und DB-Zählung um höchstens ±1–4 Nachrichten pro
+Tag ab. Die Abweichung ist kein Datenverlust, sondern ein reiner
+Tagesgrenzeneffekt: Die Hub-Metrik zählt nach Empfangszeit (UTC-
+Kalendertag), die Datenbank nach dem Messzeitpunkt im Payload
+(`ReadingTimestamp`, lokale Zeit, nach UTC konvertiert) – Nachrichten nahe
+Mitternacht fallen dadurch teils in unterschiedliche Tages-Buckets.
+Summiert über mehrere Tage verschwindet die Abweichung vollständig:
+27.–30.08. ergeben in Summe Hub 22'778 gegen DB 22'778 (Differenz 0). Das
+bestätigt: unter Normalbedingungen erreicht **jede** vom Hub angenommene
+Nachricht auch die Datenbank; die Idempotenz-Absicherung über den Unique
+Index (`DeviceId`, `ReadingTimestamp`, siehe `database/schema.sql`)
 verursacht keine stillen Duplikate oder Lücken.
 
 **Befund 2 – Realer Datenverlust 31.08.–04.09.:** Über diesen Zeitraum
@@ -91,6 +97,26 @@ mit dem in Abschnitt 2 gemessenen Muster (0 Zeilen für 01.–03.09., nur der
 zeitlich jüngste Teil des Backlogs vom 04.09. wurde nach Wiederanlauf noch
 rechtzeitig verarbeitet, siehe die Mehrstunden-Latenzen in Abschnitt 4).
 
+**Präzisierung – ein Checkpoint-Store hätte diesen Verlust nicht
+verhindert:** Der Processor liest ohnehin mit `starting_position="-1"` bei
+jedem (Wieder-)Start ab Beginn der aktuellen Event-Hub-Retention und
+schreibt idempotent (Unique Index) – ein Checkpoint hätte lediglich
+verhindert, bereits verarbeitete Nachrichten nach einem Neustart erneut zu
+lesen, nicht aber Nachrichten gerettet, die schon vor dem Wiederanlauf aus
+der Retention gefallen waren. Ursächlich war stattdessen, dass die
+Ausfalldauer (rund 5 Tage, 31.08.–04.09.) die Retention (1 Tag) weit
+überschritt, **ohne dass eine Alarmierung darauf hinwies** – niemand wurde
+informiert, dass der Processor nicht mehr lief. Wirksame Gegenmassnahmen
+wären: (1) eine längere Event-Hub-Retention (S1-Tarif erlaubt bis zu 7
+Tage statt 1), (2) Alerting auf Datenaktualität (z.B.
+`SecondsSinceReading` aus `vw_LatestReadings`) oder auf den Processor-/
+Container-App-Status, und optional (3) zusätzliches Routing der
+Rohnachrichten in einen Blob-Storage-Endpunkt als von der Retention
+unabhängiges Backup. Ein Checkpoint-Store bleibt dennoch sinnvoll –
+allerdings als Voraussetzung für mehrere parallele Processor-Instanzen
+(siehe `modules/container-apps.bicep`, Kommentar zum `scale`-Block), nicht
+als Schutz vor Retention-Überschreitung.
+
 Ergänzend geprüfte, aber verworfene Indizien:
 - Die Container-App-Revision (`ca-pipeline-dev-swn-ghxzap--opcua180253`) ist
   seit dem initialen Deployment am 26.08. durchgehend die einzige aktive
@@ -103,13 +129,13 @@ Ergänzend geprüfte, aber verworfene Indizien:
 **Einordnung für die Arbeit:** Der Befund ist wissenschaftlich verwertbar und
 aufschlussreicher als ein lückenloser Abgleich: Er demonstriert empirisch
 eine bereits im Code kommentierte, aber bisher nicht real beobachtete Grenze
-der Architektur (fehlender Checkpoint-Store + kurze Dev-Retention ⇒
-Datenverlustrisiko bei Prozessorausfall > Retentionsdauer) – ausgelöst durch
-ein reales, für Free-/Studenten-Tier-Umgebungen typisches Betriebsrisiko
-(Ablauf des Startguthabens). Gehört inhaltlich nach Kapitel 6.1
-(Funktionalität, als Ist-Befund) und in die Diskussion Kapitel 7 (Grenzen
-der Untersuchung / Wartbarkeit – Empfehlung: `retentionDays` erhöhen
-und/oder Checkpoint-Store nachrüsten für einen produktiven Einsatz;
+der Architektur (kurze Dev-Retention ohne Alarmierung ⇒ Datenverlustrisiko
+bei Prozessorausfall > Retentionsdauer) – ausgelöst durch ein reales, für
+Free-/Studenten-Tier-Umgebungen typisches Betriebsrisiko (Ablauf des
+Startguthabens). Gehört inhaltlich nach Kapitel 6.1 (Funktionalität, als
+Ist-Befund) und in die Diskussion Kapitel 7 (Grenzen der Untersuchung /
+Wartbarkeit – Empfehlung: `retentionDays` erhöhen und Alerting auf
+Datenaktualität/Processor-Status ergänzen, siehe Präzisierung oben;
 Kosten-/Lizenzgrenzen-Diskussion um das Startguthaben-Risiko ergänzen).
 
 ## 4. Ende-zu-Ende-Latenz – Ergebnis
@@ -157,18 +183,32 @@ siehe `LASTTEST_BERICHT.md`). Diese sind methodisch keine "E2E-Latenz",
 sondern Ausfall-/Wiederanlauf-Zeiten und gehören separat in die Diskussion
 der Betriebssicherheit.
 
-## 5. Aktueller Betriebszustand (Stand 10.09.2026, zu prüfen)
+## 5. Betriebszustand: Erfassungsunterbruch 08.–24.09.2026 (aufgelöst)
 
-Die letzte Zeile des Produktivgeräts (`rpi-edge-01`, DHT22) stammt vom
-**08.09.2026, 22:25:54 Uhr** (lokal) – seither (> 36 h) keine neuen Werte,
-obwohl der Processor (Container App) gemäss `az containerapp show`
-weiterhin `runningStatus: Running` meldet. Ein SSH-Zugriff auf den Pi
-(172.16.20.104) war während dieser Analyse nicht möglich (Verbindung
-timeout – vermutlich weil der Auswertungsrechner aktuell nicht im
-Testnetzwerk hinter der OPNsense hängt). **Vom Autor zu prüfen:** ob der Pi/
-Edge-Gateway aktuell tatsächlich offline ist (Stromausfall, Netzwerk,
-Container gestoppt) – relevant sowohl für die Datenerfassung bis zur Abgabe
-als auch als möglicher weiterer Beleg für Kapitel 6.5 (Wartbarkeit).
+Ursprünglich (Stand 10.09.2026) als offener Prüfpunkt markiert: Die letzte
+Zeile des Produktivgeräts (`rpi-edge-01`, DHT22) stammte vom 08.09.2026,
+22:25:54 Uhr (lokal), seither über 36 Stunden keine neuen Werte, obwohl der
+Processor (Container App) weiterhin `runningStatus: Running` meldete. Die
+Ursache ist mittlerweile vollständig geklärt und behoben; drei sich
+überlagernde Fehlerbilder waren beteiligt:
+
+1. **Edge Gateway blockierte vollständig** (08.–24.09., 16 Tage): Ein
+   OPC-UA-Read-Aufruf ohne Timeout blockierte die Hauptschleife des Edge
+   Gateway unbegrenzt, wodurch auch die DHT22-Übertragung zum Stillstand
+   kam (siehe Commit `63d9f53`). Fix: harter 5-Sekunden-Timeout je
+   OPC-UA-Aufruf in einem separaten Worker-Thread
+   (`edge-gateway/app/main.py`, `OPCUA_CALL_TIMEOUT_SEC`).
+2. **Processor in einer BrokenPipeError-Schleife** beim Event-Hub-Empfang.
+   Fix: Neustart der Container-App-Revision.
+3. **Wackelkontakt am DHT22** lieferte danach zeitweise 0,0 °C / 0,0 % rH.
+   Fix: Steckverbindung neu gesteckt.
+
+**Verifikation:** Die Zeilenzahl in `dbo.SensorReadings` stieg nach den
+Fixes innert 16 Sekunden von 60'220 auf 60'221 – der volle Pfad Edge
+Gateway → IoT Hub → Event Hub → Processor → SQL ist damit nachweislich
+wiederhergestellt. Relevant für Kapitel 6.5 (Wartbarkeit): Ohne aktives
+Monitoring (siehe Abschnitt 3) blieb der Unterbruch 16 Tage unbemerkt –
+derselbe Befund wie beim Datenverlust-Vorfall in Abschnitt 3.
 
 ## 6. Artefakte
 

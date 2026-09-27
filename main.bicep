@@ -139,7 +139,6 @@ module containerApps 'modules/container-apps.bicep' = {
 
 output iotHubName          string = iotHub.outputs.name
 output iotHubHostName      string = iotHub.outputs.hostName
-output iotHubConnectionStr string = iotHub.outputs.connectionString
 
 output sqlServerName string = storage.outputs.serverName
 output sqlServerFqdn string = storage.outputs.serverFqdn

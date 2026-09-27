@@ -131,9 +131,6 @@ output name string = iotHub.name
 @description('Hostname des IoT Hubs (für Geräteverbindungen)')
 output hostName string = iotHub.properties.hostName
 
-@description('Connection String für Backend-Services (iothubowner Policy)')
-output connectionString string = 'HostName=${iotHub.properties.hostName};SharedAccessKeyName=iothubowner;SharedAccessKey=${iotHub.listKeys().value[0].primaryKey}'
-
 @description('Event Hub-kompatibler Endpunkt (für Consumer wie Container Apps)')
 output eventHubEndpoint string = iotHub.properties.eventHubEndpoints.events.endpoint
 
@@ -144,6 +141,7 @@ output eventHubPath string = iotHub.properties.eventHubEndpoints.events.path
 output consumerGroupName string = 'processor'
 
 @description('Event-Hub-kompatible Connection String für den Processor (Policy "service": nur ServiceConnect, kein iothubowner nötig)')
+@secure()
 output eventHubServiceConnectionString string = 'Endpoint=${iotHub.properties.eventHubEndpoints.events.endpoint};SharedAccessKeyName=service;SharedAccessKey=${first(filter(iotHub.listKeys().value, k => k.keyName == 'service')).primaryKey}'
 
 @description('Ressource ID des IoT Hubs')

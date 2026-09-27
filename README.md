@@ -5,6 +5,9 @@
 > Semesterarbeit CAS Cloud Computing – Markus Abegglen, Deleproject AG  
 > Berner Fachhochschule, 2026
 
+> Abgabestand für die Semesterarbeit: Git-Tag `v1.0-abgabe`. Der
+> `main`/`develop`-Branch kann seither weiterentwickelt worden sein.
+
 ---
 
 ## Überblick
@@ -43,7 +46,7 @@ iiot-pipeline/
 │   ├── iot-hub.bicep             # Azure IoT Hub + Consumer Groups
 │   ├── container-apps.bicep      # Verarbeitungsschicht (Container App Environment, ACR)
 │   ├── storage.bicep             # Azure SQL Serverless
-│   └── monitoring.bicep          # Log Analytics, Alerts (geplant)
+│   └── monitoring.bicep          # Log Analytics, Alerts (vorbereitet, nicht aktiviert)
 ├── parameters/
 │   ├── dev.bicepparam            # Dev-Umgebung (Free Tier, 1 Tag Retention)
 │   └── prod.bicepparam           # Prod-Umgebung (S1, 3 Tage Retention)

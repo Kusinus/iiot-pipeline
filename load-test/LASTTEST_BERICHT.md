@@ -172,7 +172,7 @@ reale Produktivgerät enthält.
 |---|---|
 | Wie simulierst du Last jenseits des einen physischen Sensors? | Python-Lastskript mit N virtuellen Device-Identities, ausgeführt auf dem Pi selbst für realistischen Netzwerkpfad (siehe Abschnitt 2) |
 | Welche Metriken misst du unter Last? | Ist-Durchsatz, Sende-Latenz (Ø/p95/max), Fehlerrate — gemessen clientseitig; Azure-Monitor-Metriken (`connect.success`, `connectedDeviceCount`, `sendThrottle`) für Hub-Perspektive |
-| Bei welcher Last stösst welche Komponente zuerst an eine Grenze? | **Die Tagesquote des IoT-Hub-F1-Tiers (8'000 Nachrichten/Tag)** — nicht Durchsatz/Sekunde, nicht Latenz, nicht Container-App-Skalierung. Bis 200 gleichzeitige Geräte / 15s-Fenster traten **keine** durchsatz- oder latenzbedingten Fehler auf; die Grenze war ausschliesslich das kumulierte Tagesvolumen. |
+| Bei welcher Last stösst welche Komponente zuerst an eine Grenze? | **Die Tagesquote des IoT-Hub-F1-Tiers (8'000 Nachrichten/Tag)** war die zuerst beobachtete Systemgrenze. Eine Durchsatzgrenze des Hub selbst wurde dabei nicht erreicht: Bis 200 gleichzeitige Geräte/15s-Fenster traten **keine** hub-seitigen Fehler auf, bei durchgehend konstanter Latenz. Der ab ~50 Geräten sinkende *Ist*-Durchsatz (Abschnitt 3, Beobachtung 2) deutet stattdessen auf eine clientseitige Grenze hin — vermutlich der TLS/WebSocket-Verbindungsaufbau vieler gleichzeitiger virtueller Geräte auf dem Raspberry Pi 5 —, die jedoch nicht isoliert von einer Hub-Drosselung nachgewiesen wurde. |
 | Ist das Autoscaling der Container App konfiguriert/getestet? | **Nein** — `az containerapp show` bestätigt `minReplicas: 1, maxReplicas: 1, rules: null`. Die Verarbeitungsschicht läuft auf fixer Instanzzahl; unter der getesteten Last (bis 2'800 Nachrichten in 15s-Bursts) wurde dies nicht zum Engpass, da die Tagesquote vorher greift. |
 | Übertragbarkeit trotz Single-Sensor-Setup? | Der synthetische Lasttest lief über denselben Netzwerkpfad/dieselbe SDK wie der reale Sensor, wodurch die Ergebnisse (Latenz, Fehlerverhalten) direkt auf das Produktivsystem übertragbar sind — mit der expliziten Limitation, dass Free-Tier-Quoten reale Lasttests aktiv einschränken/gefährden. |
 
@@ -182,9 +182,12 @@ reale Produktivgerät enthält.
    Geräte konstant** (~130 ms Ø, 0 Fehler) — der Hub selbst ist im
    getesteten Lastbereich nicht der Flaschenhals.
 2. **Die tatsächliche, zuerst erreichte Grenze ist die Tagesquote**
-   (8'000 Nachrichten/Tag), nicht Durchsatz oder Latenz — eine bewusste,
-   im Projekt bereits dokumentierte Kostenentscheidung (Free Tier), deren
-   Konsequenz hier erstmals real reproduziert und belegt wurde.
+   (8'000 Nachrichten/Tag) — eine bewusste, im Projekt bereits
+   dokumentierte Kostenentscheidung (Free Tier), deren Konsequenz hier
+   erstmals real reproduziert und belegt wurde. Eine Durchsatz- oder
+   Latenzgrenze des Hub selbst wurde dabei nicht erreicht; der sinkende
+   Ist-Durchsatz ab ~50 Geräten ist vermutlich clientseitig (Pi) bedingt
+   und wurde nicht isoliert (siehe Abschnitt 3, Beobachtung 2).
 3. **Bei Quota-Überschreitung fällt der gesamte Hub aus**, nicht nur die
    verursachenden Verbindungen — ein relevanter Punkt für die
    Diskussion der Betriebssicherheit von Shared/Free-Tier-Ressourcen.

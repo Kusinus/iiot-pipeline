@@ -88,4 +88,6 @@ iiot-pipeline/
 
 ## Lizenz
 
-MIT – Verwendung als Referenzarchitektur für Kundenprojekte der Deleproject AG ausdrücklich erwünscht.
+MIT © Markus Abegglen. Freie Nutzung ausdrücklich erwünscht, auch als
+Referenzarchitektur für eigene Projekte im Rahmen der Tätigkeit bei der
+Deleproject AG.

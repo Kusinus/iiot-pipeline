@@ -21,7 +21,7 @@ BEGIN
         ON dbo.SensorReadings (DeviceId, ReadingTimestamp DESC);
 END
 
--- Ohne persistenten Checkpoint-Store (Kann-Ziel, nicht Teil des Prototyps)
+-- Ohne persistenten Checkpoint-Store (bewusst nicht Teil des Prototyps)
 -- liest der Processor bei jedem Neustart die Retention des Event Hub
 -- erneut von Beginn – dieselbe Nachricht kann so mehrfach ankommen. Die
 -- Unique-Constraint macht den Insert idempotent, ohne die Architektur mit

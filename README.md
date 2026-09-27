@@ -49,7 +49,8 @@ iiot-pipeline/
 │   └── monitoring.bicep          # Log Analytics, Alerts (vorbereitet, nicht aktiviert)
 ├── parameters/
 │   ├── dev.bicepparam            # Dev-Umgebung (Free Tier, 1 Tag Retention)
-│   └── prod.bicepparam           # Prod-Umgebung (S1, 3 Tage Retention)
+│   ├── prod.bicepparam           # Prod-Umgebung (S1, 3 Tage Retention)
+│   └── test.bicepparam           # Test-Umgebung (S1, für Redeployment-Tests ohne Antasten der Dev-Umgebung)
 ├── database/
 │   ├── schema.sql                # Zeitreihen-Tabelle dbo.SensorReadings
 │   └── views.sql                 # Views für Power BI (Live-Ansicht, Zeitreihenauswertung)
